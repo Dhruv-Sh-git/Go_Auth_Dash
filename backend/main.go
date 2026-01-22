@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"auth-dashboard-backend/config"
-	"auth-dashboard-backend/models"
 	"auth-dashboard-backend/routes"
 
 	"github.com/gin-gonic/gin"
@@ -14,14 +13,9 @@ func main() {
 	// Load environment variables
 	config.LoadEnv()
 
-	// Connect to database
-	config.ConnectDB()
-
-	// Auto-migrate database schema
-	if err := config.DB.AutoMigrate(&models.User{}); err != nil {
-		log.Fatal("Failed to migrate database:", err)
-	}
-	log.Println("Database migration completed")
+	// Initialize in-memory store
+	config.InitStore()
+	log.Println("In-memory user store initialized")
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -31,6 +25,20 @@ func main() {
 
 	// Setup routes
 	routes.SetupRoutes(router)
+
+	// Welcome endpoint
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Auth Dashboard Backend API",
+			"version": "1.0.0",
+			"endpoints": gin.H{
+				"health":   "GET /health",
+				"register": "POST /api/auth/register",
+				"login":    "POST /api/auth/login",
+				"me":       "GET /api/user/me (requires JWT token)",
+			},
+		})
+	})
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {

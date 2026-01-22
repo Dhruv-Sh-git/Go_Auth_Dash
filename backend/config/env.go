@@ -9,7 +9,6 @@ import (
 
 type Config struct {
 	Port      string
-	DBUrl     string
 	JWTSecret string
 }
 
@@ -24,14 +23,10 @@ func LoadEnv() {
 
 	Env = &Config{
 		Port:      getEnv("PORT", "8080"),
-		DBUrl:     getEnv("DB_URL", ""),
 		JWTSecret: getEnv("JWT_SECRET", ""),
 	}
 
 	// Validate required environment variables
-	if Env.DBUrl == "" {
-		log.Fatal("DB_URL is not set in environment variables")
-	}
 	if Env.JWTSecret == "" {
 		log.Fatal("JWT_SECRET is not set in environment variables")
 	}

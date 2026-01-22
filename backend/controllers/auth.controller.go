@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"errors"
 	"net/http"
 
 	"auth-dashboard-backend/config"
@@ -9,7 +8,7 @@ import (
 	"auth-dashboard-backend/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
 // Register handles user registration
@@ -23,11 +22,15 @@ func Register(c *gin.Context) {
 	}
 
 	// Check if email already exists
-	var existingUser models.User
-	if err := config.DB.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
-		return
+	config.Store.Mu.RLock()
+	for _, user := range config.Store.Users {
+		if user.Email == input.Email {
+			config.Store.Mu.RUnlock()
+			c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+			return
+		}
 	}
+	config.Store.Mu.RUnlock()
 
 	// Hash the password
 	hashedPassword, err := utils.HashPassword(input.Password)
@@ -37,16 +40,18 @@ func Register(c *gin.Context) {
 	}
 
 	// Create new user
-	user := models.User{
+	userID := uuid.New().String()
+	user := &config.User{
+		ID:       userID,
 		Name:     input.Name,
 		Email:    input.Email,
 		Password: hashedPassword,
 	}
 
-	if err := config.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
+	// Store user in memory
+	config.Store.Mu.Lock()
+	config.Store.Users[userID] = user
+	config.Store.Mu.Unlock()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
@@ -62,24 +67,29 @@ func Login(c *gin.Context) {
 	}
 
 	// Find user by email
-	var user models.User
-	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-			return
+	config.Store.Mu.RLock()
+	var foundUser *config.User
+	for _, user := range config.Store.Users {
+		if user.Email == input.Email {
+			foundUser = user
+			break
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+	}
+	config.Store.Mu.RUnlock()
+
+	if foundUser == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	// Verify password
-	if !utils.CheckPasswordHash(input.Password, user.Password) {
+	if !utils.CheckPasswordHash(input.Password, foundUser.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID)
+	token, err := utils.GenerateToken(foundUser.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -97,16 +107,19 @@ func GetMe(c *gin.Context) {
 		return
 	}
 
-	// Fetch user from database
-	var user models.User
-	if err := config.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+	// Fetch user from memory
+	config.Store.Mu.RLock()
+	user, found := config.Store.Users[userID.(string)]
+	config.Store.Mu.RUnlock()
+
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, user.ToUserResponse())
+	c.JSON(http.StatusOK, models.UserResponse{
+		ID:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+	})
 }

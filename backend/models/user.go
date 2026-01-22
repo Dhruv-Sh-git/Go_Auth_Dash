@@ -1,20 +1,11 @@
 package models
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
-
-// User represents the user model in the database
+// User represents the user model
 type User struct {
-	ID        string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Name      string         `gorm:"type:varchar(100);not null" json:"name"`
-	Email     string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"email"`
-	Password  string         `gorm:"type:varchar(255);not null" json:"-"` // JSON tag "-" prevents password from being serialized
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"-"` // JSON tag "-" prevents password from being serialized
 }
 
 // UserRegisterInput represents the registration request payload

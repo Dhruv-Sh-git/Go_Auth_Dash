@@ -1,27 +1,27 @@
 package config
 
 import (
-	"log"
-
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"sync"
 )
 
-var DB *gorm.DB
-
-// ConnectDB establishes connection to PostgreSQL database
-func ConnectDB() {
-	var err error
-
-	DB, err = gorm.Open(postgres.Open(Env.DBUrl), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
-	}
-
-	log.Println("Database connected successfully")
+// UserStore holds users in memory
+type UserStore struct {
+	Users map[string]*User
+	Mu    sync.RWMutex
 }
 
-// GetDB returns the database instance
-func GetDB() *gorm.DB {
-	return DB
+type User struct {
+	ID       string
+	Name     string
+	Email    string
+	Password string
+}
+
+var Store *UserStore
+
+// InitStore initializes the in-memory user store
+func InitStore() {
+	Store = &UserStore{
+		Users: make(map[string]*User),
+	}
 }
