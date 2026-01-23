@@ -1,3 +1,4 @@
+// whole registeration workflow aka business logic
 package controllers
 
 import (

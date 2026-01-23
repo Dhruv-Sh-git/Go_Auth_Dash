@@ -1,3 +1,4 @@
+//api endpoints, business logic of apis are in controller
 package routes
 
 import (

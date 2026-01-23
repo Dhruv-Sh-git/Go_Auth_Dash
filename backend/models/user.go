@@ -1,3 +1,4 @@
+// schemas
 package models
 
 // User represents the user model
